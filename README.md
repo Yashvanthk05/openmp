@@ -1,4 +1,4 @@
-# 🔐 OpenMP ZIP Password Cracker + 📊 Mark Analyzer
+# 🔐 OpenMP ZIP Password Cracker
 
 **ZIP Password Cracker** – Recovers forgotten passwords from personal ZIP files using brute-force and OpenMP parallelization.
 

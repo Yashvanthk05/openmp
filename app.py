@@ -5,114 +5,15 @@ import matplotlib.pyplot as plt
 import subprocess
 import os
 import re
+import time
 
-st.set_page_config(page_title="Mark Visualizer", layout="wide")
+st.set_page_config(page_title="File Unlocker", layout="wide")
 
-st.title("📈 VIT MARK VISUALISER")
-
-uploaded = st.file_uploader("📂 Upload your CSV file", type=["csv","xlsx"])
-
-if uploaded:
-    if uploaded.name.endswith('.csv'):
-        df = pd.read_csv(uploaded)
-    elif uploaded.name.endswith('.xlsx'):
-        df = pd.read_excel(uploaded)
-        csv_path = "converted_file.csv"
-        df.to_csv(csv_path, index=False)
-        df = pd.read_csv(csv_path)
-        st.success(f"✅ Excel file converted to CSV and saved as {csv_path}")
-    st.write("### 📝 Preview of Uploaded Data", df)
-
-    target_column = st.selectbox("🎯 Select Target Column (y)", df.columns)
-    features = st.multiselect("📐 Select Feature Columns (X)", [col for col in df.columns if col != target_column])
-    clean_method = st.radio("🧹 Choose Cleaning Method", ("Fill Missing with Mean", "Drop Missing Rows"))
-
-    if st.button("🚀 Clean & Run Gradient Descent"):
-        X = df[features].select_dtypes(include=[np.number])
-        y = df[target_column].astype(float)
-
-        if X.empty or y.empty:
-            st.error("❌ Selected columns must be numeric.")
-        else:
-            if clean_method == "Fill Missing with Mean":
-                X = X.fillna(X.mean())
-                y = y.fillna(y.mean())
-            elif clean_method == "Drop Missing Rows":
-                combined = pd.concat([X, y], axis=1).dropna()
-                X = combined[features]
-                y = combined[target_column]
-
-            X = (X - X.mean()) / X.std()
-            y = y.values.reshape(-1, 1)
-
-            X.to_csv("X.csv", index=False, header=False)
-            pd.DataFrame(y).to_csv("y.csv", index=False, header=False)
-
-            st.write("### Cleaned Data Preview")
-            st.write("#### Features (X):")
-            st.write(X.head())
-            st.write("#### Target (y):")
-            st.write(pd.DataFrame(y).head())
-
-            with st.spinner("⚙️ Running Gradient Descent with OpenMP..."):
-                os.system("gcc -fopenmp gd_omp.c -o gd_omp -lm")
-                result = subprocess.run(
-                    ["./gd_omp", str(X.shape[1]), "1000", "0.01"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                st.success("✅ Gradient Descent Completed!")
-
-            st.write("### 📋 Output from OpenMP Program")
-            st.code(result.stdout)
-            if result.stderr:
-                st.error(result.stderr)
-
-            # cost_log = pd.read_csv("cost_log.csv")
-            # st.write("### 📉 Cost vs. Epoch")
-            # fig, ax = plt.subplots()
-            # ax.plot(cost_log['epoch'], cost_log['cost'], label="Cost")
-            # ax.set_xlabel("Epoch")
-            # ax.set_ylabel("Cost")
-            # ax.grid(True)
-            # st.pyplot(fig)
-            stats = {}
-            lines = result.stdout.splitlines()
-            for line in lines:
-                if "Mean" in line:
-                    stats["Mean"] = float(re.search(r"[-+]?\d*\.\d+|\d+", line).group())
-                elif "Standard Deviation" in line:
-                    stats["Std Dev"] = float(re.search(r"[-+]?\d*\.\d+|\d+", line).group())
-                elif "Min" in line:
-                    stats["Min"] = float(re.search(r"[-+]?\d*\.\d+|\d+", line).group())
-                elif "Max" in line:
-                    stats["Max"] = float(re.search(r"[-+]?\d*\.\d+|\d+", line).group())
-                elif "Median" in line:
-                    stats["Median"] = float(re.search(r"[-+]?\d*\.\d+|\d+", line).group())
-
-            # Plot target column
-            st.write("### 🎯 Plot of Target Values (y) with Statistical Annotations")
-
-            fig, ax = plt.subplots(figsize=(6, 2))  # Set figure size to 500x900 pixels (in inches: 5x9)
-            ax.plot(y, marker='o', linestyle='-', color='blue', label='Target Values')
-
-            # Annotate stats
-            for label, value in stats.items():
-                ax.axhline(y=value, linestyle='--', label=f'{label}: {value:.2f}')
-
-            ax.set_title("Target Column with Statistics")
-            ax.set_xlabel("Index")
-            ax.set_ylabel("Target Value")
-            ax.legend()
-            ax.grid(True)
-            st.pyplot(fig)
-
-st.markdown("---")
-st.header("🔓 ZIP Password Cracker (with OpenMP)")
+st.header("🔓 File Password Cracker (with OpenMP)")
 
 zip_file = st.file_uploader("📦 Upload a password-protected ZIP file", type=["zip"])
 pwd_length = st.number_input("🔑 Maximum Password Length", min_value=1, max_value=10, value=4, step=1)
+num_threads = st.slider("🧵 Number of Threads", min_value=1, max_value=os.cpu_count(), value=4)
 
 if st.button("🔐 Start Cracking ZIP Password"):
     if zip_file is None:
@@ -129,9 +30,10 @@ if st.button("🔐 Start Cracking ZIP Password"):
         else:
             st.success("✅ Compilation Successful!")
 
-            with st.spinner("🔍 Cracking password..."):
+            st.write(f"🔍 Cracking password using {num_threads} threads...")
+            with st.spinner(f"Cracking in progress..."):
                 result = subprocess.run(
-                    ["./password_cracker", str(pwd_length), zip_path],
+                    ["./password_cracker", str(pwd_length), zip_path,str(num_threads)],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
@@ -141,3 +43,68 @@ if st.button("🔐 Start Cracking ZIP Password"):
             st.code(result.stdout)
             if result.stderr:
                 st.error(result.stderr)
+
+if st.button("📊 Benchmark Speedup (1 to Max Threads)"):
+    if zip_file is None:
+        st.warning("⚠️ Please upload a .zip file.")
+    else:
+        zip_path = "protected.zip"
+        with open(zip_path, "wb") as f:
+            f.write(zip_file.read())
+
+        max_threads = os.cpu_count()
+        thread_counts = list(range(1, max_threads + 1))
+        execution_times = []
+
+        st.info("⏱️ Benchmarking... This may take some time ⌛")
+
+        progress = st.progress(0)
+        for i, threads in enumerate(thread_counts):
+            result = subprocess.run(
+                ["./password_cracker", str(pwd_length), zip_path, str(threads)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            match = re.search(r"Time taken: ([0-9.]+)", result.stdout)
+            if match:
+                exec_time = float(match.group(1))
+                execution_times.append(exec_time)
+            else:
+                execution_times.append(None)
+
+            progress.progress((i + 1) / len(thread_counts))
+
+        valid_data = [(t, e) for t, e in zip(thread_counts, execution_times) if e is not None]
+        thread_counts, execution_times = zip(*valid_data)
+        base_time = execution_times[0]
+        speedup = [base_time / t for t in execution_times]
+
+        data = {
+            "Number of Threads": thread_counts,
+            "Execution Time (s)": execution_times,
+            "Speedup": speedup
+        }
+        df = pd.DataFrame(data)
+        
+        st.write("### 📋 Benchmark Results")
+        st.dataframe(df)
+        
+        st.write("### ⏱️ Execution Time vs Threads")
+        fig1, ax1 = plt.subplots()
+        ax1.plot(thread_counts, execution_times, marker='o')
+        ax1.set_xlabel("Number of Threads")
+        ax1.set_ylabel("Execution Time (s)")
+        ax1.set_title("Execution Time vs Threads")
+        ax1.grid(True)
+        st.pyplot(fig1)
+        st.write("### ⚡ Speedup vs Threads")
+        fig2, ax2 = plt.subplots()
+        ax2.plot(thread_counts, speedup, marker='s', color='green')
+        ax2.set_xlabel("Number of Threads")
+        ax2.set_ylabel("Speedup")
+        ax2.set_title("Speedup vs Threads")
+        ax2.grid(True)
+        st.pyplot(fig2)
+

@@ -96,17 +96,19 @@ void generate_and_test(int length, const char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc != 4) {
         printf("Usage: %s <length> <file.zip>\n", argv[0]);
         return 1;
     }
     int length = atoi(argv[1]);
     const char *filename = argv[2];
+    int num_threads=atoi(argv[3]);
     if (length <= 0 || length > MAX_PASSWORD_LENGTH) {
         printf("Password length must be between 1 and %d\n", MAX_PASSWORD_LENGTH);
         return 1;
     }
-    printf("🧵 Using %d threads\n", omp_get_max_threads());
+    omp_set_num_threads(num_threads);
+    printf("🧵 Using %d threads\n", num_threads);
     double start = omp_get_wtime();
     generate_and_test(length, filename);
     double end = omp_get_wtime();

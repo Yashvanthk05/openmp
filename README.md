@@ -18,8 +18,8 @@
 ### 1. Clone the Repository
 
 ```1. Clone the Repository
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-namme
+git clone https://github.com/Yashvanthk05/openmp.git
+cd openmp
 ```
 ---
 ### 2. Install Python Dependencies
